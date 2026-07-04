@@ -96,16 +96,22 @@ app.get('/api/trails/user/:userId', async (req, res) => {
 app.post('/api/trails', async (req, res) => {
   try {
     const { createdAt, userId } = req.body;
-    // Procura se já existe um trilho com o mesmo timestamp para este user
     let trail = await Trail.findOne({ createdAt, userId });
 
     if (trail) {
-      // Se já existe, apenas atualizamos (evita duplicados)
-      trail = await Trail.findByIdAndUpdate(trail._id, req.body, { new: true });
+      // ATUALIZAÇÃO SEGURA: Não sobrepõe ratings nem votantes
+      trail.name = req.body.name;
+      trail.description = req.body.description;
+      trail.isPublic = req.body.isPublic;
+      trail.distanceMeters = req.body.distanceMeters;
+      trail.durationSeconds = req.body.durationSeconds;
+      // Os campos trail.rating, trail.numRatings e trail.ratedBy MANTÊM-SE
+      
+      await trail.save();
       return res.status(200).json(trail);
     }
 
-    // Se não existe, criamos um novo
+    // Criação de novo trilho
     const newTrail = new Trail(req.body);
     await newTrail.save();
     res.status(201).json(newTrail);
@@ -123,22 +129,19 @@ app.put('/api/trails/:id', async (req, res) => {
   }
 });
 
-// NOVO: Rota para Avaliação (Rating)
+// Avaliação (Rating) com persistência de votantes
 app.post('/api/trails/:id/rate', async (req, res) => {
   try {
     const { rating, userId } = req.body;
     const trail = await Trail.findById(req.params.id);
     if (!trail) return res.status(404).json({ error: "Trilho não encontrado" });
 
-    // Garantir que ratedBy existe
     if (!trail.ratedBy) trail.ratedBy = [];
 
-    // Se já votou, avisar
     if (trail.ratedBy.includes(userId)) {
       return res.status(403).json({ error: "Já avaliou" });
     }
 
-    // Cálculo ultra-seguro (usando Number() para garantir tipos)
     const newVote = Number(rating);
     const currentRating = Number(trail.rating || 0);
     const currentCount = Number(trail.numRatings || 0);
@@ -152,8 +155,16 @@ app.post('/api/trails/:id/rate', async (req, res) => {
     await trail.save();
     res.json(trail);
   } catch (err) {
-    console.error("ERRO NO RATING:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/trails/:id', async (req, res) => {
+  try {
+    await Trail.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    res.status(400).json({ error: "Erro ao eliminar" });
   }
 });
 
