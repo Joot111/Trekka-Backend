@@ -61,27 +61,51 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // 4. ROTAS DE TRILHOS 
-// Obter todos os trilhos de um utilizador específico
-app.get('/api/trails/user/:userId', async (req, res) => {
-  const trails = await Trail.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-  res.json(trails);
+// NOVO: Obter todos os trilhos públicos (para o ecrã Explorar) 
+app.get('/api/trails', async (req, res) => { 
+  try { 
+    const trails = await Trail.find().sort({ createdAt: -1 }); 
+    res.json(trails); 
+  } catch (err) { 
+    res.status(500).json({ error: "Erro ao buscar trilhos públicos" }); 
+  } 
 });
 
-// Criar um novo trilho (Upload)
-app.post('/api/trails', async (req, res) => {
-  try {
-    const trail = new Trail(req.body);
-    await trail.save();
-    res.status(201).json(trail);
-  } catch (err) {
-    res.status(400).json({ error: "Erro ao salvar" });
-  }
+// NOVO: Obter um trilho específico por ID (para desenhar o mapa remoto) 
+app.get('/api/trails/:id', async (req, res) => { 
+  try { 
+    const trail = await Trail.findById(req.params.id); 
+    if (trail) { 
+      res.json(trail); 
+    } else { 
+      res.status(404).json({ error: "Trilho não encontrado" }); 
+    } 
+  } catch (err) { 
+    res.status(400).json({ error: "ID inválido" }); 
+  } 
 });
 
-// Eliminar um trilho
-app.delete('/api/trails/:id', async (req, res) => {
-  await Trail.findByIdAndDelete(req.params.id);
-  res.status(204).send();
+// Obter todos os trilhos de um utilizador específico (para Sincronização) 
+app.get('/api/trails/user/:userId', async (req, res) => { 
+  const trails = await Trail.find({ userId: req.params.userId }).sort({ createdAt: -1 }); 
+  res.json(trails); 
+});
+
+// Criar um novo trilho (Upload) 
+app.post('/api/trails', async (req, res) => { 
+  try { 
+    const trail = new Trail(req.body); 
+    await trail.save(); 
+    res.status(201).json(trail); 
+  } catch (err) { 
+    res.status(400).json({ error: "Erro ao salvar" }); 
+  } 
+});
+
+// Eliminar um trilho 
+app.delete('/api/trails/:id', async (req, res) => { 
+  await Trail.findByIdAndDelete(req.params.id); 
+  res.status(204).send(); 
 });
 
 const PORT = process.env.PORT || 3000;
