@@ -26,6 +26,7 @@ const Trail = mongoose.model('Trail', new mongoose.Schema({
   durationSeconds: Number,
   createdAt: { type: Number, default: Date.now },
   isPublic: { type: Boolean, default: false }, // NOVO: Campo de privacidade
+  rating: { type: Number, default: 0 },         // NOVO: Avaliação média do trilho
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   points: [{
     latitude: Number,
@@ -88,6 +89,36 @@ app.post('/api/trails', async (req, res) => {
 app.delete('/api/trails/:id', async (req, res) => {
   await Trail.findByIdAndDelete(req.params.id);
   res.status(204).send();
+});
+
+// ATUALIZADO: Editar um trilho existente (Nome ou Privacidade)
+app.put('/api/trails/:id', async (req, res) => {
+  try {
+    const updatedTrail = await Trail.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body }, // Atualiza apenas os campos enviados (ex: name, isPublic)
+      { new: true }       // Devolve o objeto já atualizado
+    );
+    res.json(updatedTrail);
+  } catch (err) {
+    res.status(400).json({ error: "Erro ao atualizar trilho" });
+  }
+});
+
+// NOVO: Rota para Avaliação (Rating)
+app.post('/api/trails/:id/rate', async (req, res) => {
+  try {
+    const { rating } = req.body;
+    const trail = await Trail.findById(req.params.id);
+    if (!trail) return res.status(404).send();
+
+    // Lógica simples: vamos guardar a média (podes fazer algo mais complexo depois)
+    trail.rating = rating; 
+    await trail.save();
+    res.json(trail);
+  } catch (err) {
+    res.status(400).send();
+  }
 });
 
 const PORT = process.env.PORT || 3000;
