@@ -25,9 +25,9 @@ const Trail = mongoose.model('Trail', new mongoose.Schema({
   distanceMeters: Number,
   durationSeconds: Number,
   createdAt: { type: Number, default: Date.now },
-  isPublic: { type: Boolean, default: false }, // NOVO: Campo de privacidade
-  rating: { type: Number, default: 0 },         // NOVO: Avaliação média do trilho
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isPublic: { type: Boolean, default: false },
+  rating: { type: Number, default: 0 },
+  userId: { type: String }, // Guardamos como String para facilitar
   points: [{
     latitude: Number,
     longitude: Number,
@@ -36,88 +36,77 @@ const Trail = mongoose.model('Trail', new mongoose.Schema({
   }]
 }));
 
-// 3. ROTAS DE AUTENTICAÇÃO (Iguais)
+// 3. ROTAS DE AUTENTICAÇÃO 
 app.post('/api/auth/register', async (req, res) => {
   try {
     const user = new User(req.body);
     await user.save();
-    res.status(201).json({ token: "tk_" + user._id, user: { id: user._id, name: user.name, email: user.email } });
-  } catch (err) { res.status(400).json({ error: "Erro ao criar conta" }); }
+    res.status(201).json({
+      token: "tk_" + user._id,
+      user: { id: user._id, name: user.name, email: user.email }
+    });
+  } catch (err) {
+    res.status(400).json({ error: "Erro ao criar conta" });
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const user = await User.findOne({ email: req.body.email, password: req.body.password });
   if (user) {
-    res.json({ token: "tk_" + user._id, user: { id: user._id, name: user.name, email: user.email } });
-  } else { res.status(401).json({ error: "Credenciais inválidas" }); }
+    res.json({
+      token: "tk_" + user._id,
+      user: { id: user._id, name: user.name, email: user.email }
+    });
+  } else {
+    res.status(401).json({ error: "Credenciais inválidas" });
+  }
 });
 
 // 4. ROTAS DE TRILHOS 
-
-// ATUALIZADO: Devolve apenas os trilhos públicos (para o Explorar)
 app.get('/api/trails', async (req, res) => {
   try {
     const trails = await Trail.find({ isPublic: true }).sort({ createdAt: -1 }); 
     res.json(trails);
-  } catch (err) { res.status(500).json({ error: "Erro ao buscar trilhos" }); }
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao buscar trilhos" });
+  }
 });
 
-// Obter trilho por ID
 app.get('/api/trails/:id', async (req, res) => {
   try {
     const trail = await Trail.findById(req.params.id);
     if (trail) res.json(trail);
     else res.status(404).json({ error: "Não encontrado" });
-  } catch (err) { res.status(400).json({ error: "ID inválido" }); }
+  } catch (err) {
+    res.status(400).json({ error: "ID inválido" });
+  }
 });
 
-// Obter trilhos de um utilizador (devolve TODOS: públicos e privados)
 app.get('/api/trails/user/:userId', async (req, res) => {
-  const trails = await Trail.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-  res.json(trails);
+  try {
+    const trails = await Trail.find({ userId: req.params.userId }).sort({ createdAt: -1 }); 
+    res.json(trails);
+  } catch (err) {
+    res.status(500).json({ error: "Erro" });
+  }
 });
 
-// Criar trilho (Upload)
 app.post('/api/trails', async (req, res) => {
   try {
     const trail = new Trail(req.body);
     await trail.save();
     res.status(201).json(trail);
-  } catch (err) { res.status(400).json({ error: "Erro ao salvar" }); }
-});
-
-app.delete('/api/trails/:id', async (req, res) => {
-  await Trail.findByIdAndDelete(req.params.id);
-  res.status(204).send();
-});
-
-// ATUALIZADO: Editar um trilho existente (Nome ou Privacidade)
-app.put('/api/trails/:id', async (req, res) => {
-  try {
-    const updatedTrail = await Trail.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body }, // Atualiza apenas os campos enviados (ex: name, isPublic)
-      { new: true }       // Devolve o objeto já atualizado
-    );
-    res.json(updatedTrail);
   } catch (err) {
-    res.status(400).json({ error: "Erro ao atualizar trilho" });
+    res.status(400).json({ error: "Erro ao salvar" });
   }
 });
 
-// NOVO: Rota para Avaliação (Rating)
-app.post('/api/trails/:id/rate', async (req, res) => {
+app.put('/api/trails/:id', async (req, res) => {
   try {
-    const { rating } = req.body;
-    const trail = await Trail.findById(req.params.id);
-    if (!trail) return res.status(404).send();
-
-    // Lógica simples: vamos guardar a média (podes fazer algo mais complexo depois)
-    trail.rating = rating; 
-    await trail.save();
-    res.json(trail);
+    const updatedTrail = await Trail.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+    res.json(updatedTrail);
   } catch (err) {
-    res.status(400).send();
+    res.status(400).json({ error: "Erro ao atualizar" });
   }
 });
 
