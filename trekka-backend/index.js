@@ -130,18 +130,21 @@ app.post('/api/trails/:id/rate', async (req, res) => {
     const trail = await Trail.findById(req.params.id);
     if (!trail) return res.status(404).json({ error: "Trilho não encontrado" });
 
-    // --- PROTEÇÃO PARA DADOS ANTIGOS ---
-    if (!trail.ratedBy) {
-      trail.ratedBy = [];
-    }
+    // Garantir que ratedBy existe
+    if (!trail.ratedBy) trail.ratedBy = [];
 
+    // Se já votou, avisar
     if (trail.ratedBy.includes(userId)) {
-      return res.status(403).json({ error: "Já avaliou este trilho" });
+      return res.status(403).json({ error: "Já avaliou" });
     }
 
-    // Cálculos de média...
-    const totalStars = (trail.rating * (trail.numRatings || 0)) + rating;
-    trail.numRatings = (trail.numRatings || 0) + 1;
+    // Cálculo ultra-seguro (usando Number() para garantir tipos)
+    const newVote = Number(rating);
+    const currentRating = Number(trail.rating || 0);
+    const currentCount = Number(trail.numRatings || 0);
+
+    const totalStars = (currentRating * currentCount) + newVote;
+    trail.numRatings = currentCount + 1;
     trail.rating = totalStars / trail.numRatings;
 
     trail.ratedBy.push(userId);
@@ -149,8 +152,8 @@ app.post('/api/trails/:id/rate', async (req, res) => {
     await trail.save();
     res.json(trail);
   } catch (err) {
-    console.error(err);
-    res.status(500).send();
+    console.error("ERRO NO RATING:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
