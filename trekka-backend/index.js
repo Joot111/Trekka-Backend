@@ -28,6 +28,7 @@ const Trail = mongoose.model('Trail', new mongoose.Schema({
   isPublic: { type: Boolean, default: false },
   rating: { type: Number, default: 0 },
   numRatings: { type: Number, default: 0 },
+  ratedBy: { type: [String], default: [] }, // NOVO: Guarda quem já votou
   userId: { type: String }, // Guardamos como String para facilitar
   points: [{
     latitude: Number,
@@ -114,15 +115,25 @@ app.put('/api/trails/:id', async (req, res) => {
 // NOVO: Rota para Avaliação (Rating)
 app.post('/api/trails/:id/rate', async (req, res) => {
   try {
-    const { rating } = req.body; // Valor de 1 a 5 que vem da app
+    const { rating, userId } = req.body; // App agora tem de enviar o userId
     const trail = await Trail.findById(req.params.id);
     if (!trail) return res.status(404).send();
+
+    // Verificação: O utilizador já votou?
+    if (trail.ratedBy && trail.ratedBy.includes(userId)) {
+      return res.status(403).json({ error: "Já avaliou este trilho" });
+    }
 
     // Cálculo da nova média:
     // Nova Média = (Média Atual * Qtd Atual + Novo Voto) / (Qtd Atual + 1)
     const totalStars = (trail.rating * (trail.numRatings || 0)) + rating;
     trail.numRatings = (trail.numRatings || 0) + 1;
     trail.rating = totalStars / trail.numRatings;
+
+    if (!trail.ratedBy) {
+      trail.ratedBy = [];
+    }
+    trail.ratedBy.push(userId); // Adiciona o utilizador à lista de quem já votou
 
     await trail.save();
     res.json(trail);
