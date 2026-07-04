@@ -110,5 +110,21 @@ app.put('/api/trails/:id', async (req, res) => {
   }
 });
 
+// NOVO: Rota para Avaliação (Rating)
+app.post('/api/trails/:id/rate', async (req, res) => {
+  try {
+    const { rating } = req.body;
+    const trail = await Trail.findById(req.params.id);
+    if (!trail) return res.status(404).json({ error: "Trilho não encontrado" });
+
+    // Lógica: atualiza a nota do trilho
+    trail.rating = rating; 
+    await trail.save();
+    res.json(trail);
+  } catch (err) {
+    res.status(400).json({ error: "Erro ao avaliar trilho" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor a correr na porta ${PORT}`));
