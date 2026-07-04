@@ -27,6 +27,7 @@ const Trail = mongoose.model('Trail', new mongoose.Schema({
   createdAt: { type: Number, default: Date.now },
   isPublic: { type: Boolean, default: false },
   rating: { type: Number, default: 0 },
+  numRatings: { type: Number, default: 0 },
   userId: { type: String }, // Guardamos como String para facilitar
   points: [{
     latitude: Number,
@@ -113,16 +114,20 @@ app.put('/api/trails/:id', async (req, res) => {
 // NOVO: Rota para Avaliação (Rating)
 app.post('/api/trails/:id/rate', async (req, res) => {
   try {
-    const { rating } = req.body;
+    const { rating } = req.body; // Valor de 1 a 5 que vem da app
     const trail = await Trail.findById(req.params.id);
-    if (!trail) return res.status(404).json({ error: "Trilho não encontrado" });
+    if (!trail) return res.status(404).send();
 
-    // Lógica: atualiza a nota do trilho
-    trail.rating = rating; 
+    // Cálculo da nova média:
+    // Nova Média = (Média Atual * Qtd Atual + Novo Voto) / (Qtd Atual + 1)
+    const totalStars = (trail.rating * (trail.numRatings || 0)) + rating;
+    trail.numRatings = (trail.numRatings || 0) + 1;
+    trail.rating = totalStars / trail.numRatings;
+
     await trail.save();
     res.json(trail);
   } catch (err) {
-    res.status(400).json({ error: "Erro ao avaliar trilho" });
+    res.status(400).send();
   }
 });
 
