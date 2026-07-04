@@ -95,9 +95,20 @@ app.get('/api/trails/user/:userId', async (req, res) => {
 
 app.post('/api/trails', async (req, res) => {
   try {
-    const trail = new Trail(req.body);
-    await trail.save();
-    res.status(201).json(trail);
+    const { createdAt, userId } = req.body;
+    // Procura se já existe um trilho com o mesmo timestamp para este user
+    let trail = await Trail.findOne({ createdAt, userId });
+
+    if (trail) {
+      // Se já existe, apenas atualizamos (evita duplicados)
+      trail = await Trail.findByIdAndUpdate(trail._id, req.body, { new: true });
+      return res.status(200).json(trail);
+    }
+
+    // Se não existe, criamos um novo
+    const newTrail = new Trail(req.body);
+    await newTrail.save();
+    res.status(201).json(newTrail);
   } catch (err) {
     res.status(400).json({ error: "Erro ao salvar" });
   }
